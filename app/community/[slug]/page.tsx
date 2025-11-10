@@ -1,3 +1,4 @@
+"use client"
 import { createClient } from "@/lib/supabase/client";
 import { notFound } from "next/navigation";
 
