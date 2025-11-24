@@ -12,10 +12,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- Create blog_posts table
 CREATE TABLE IF NOT EXISTS public.blog_posts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE, -- Made nullable for anonymous posts
   title TEXT NOT NULL,
   description TEXT,
   content TEXT NOT NULL,
+  author_name TEXT, -- For anonymous posts
+  author_email TEXT, -- For anonymous posts
   featured_image_url TEXT,
   slug TEXT UNIQUE NOT NULL,
   status TEXT DEFAULT 'draft',
@@ -47,10 +49,15 @@ CREATE POLICY "profiles_update_own" ON public.profiles FOR UPDATE USING (auth.ui
 CREATE POLICY "profiles_delete_own" ON public.profiles FOR DELETE USING (auth.uid() = id);
 
 -- Blog posts RLS policies
-CREATE POLICY "posts_select_all" ON public.blog_posts FOR SELECT USING (status = 'published' OR auth.uid() = user_id);
-CREATE POLICY "posts_insert_own" ON public.blog_posts FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "posts_update_own" ON public.blog_posts FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "posts_delete_own" ON public.blog_posts FOR DELETE USING (auth.uid() = user_id);
+CREATE POLICY "posts_select_all" ON public.blog_posts FOR SELECT USING (status = 'published');
+CREATE POLICY "posts_insert_anon" ON public.blog_posts FOR INSERT
+WITH CHECK (auth.uid() IS NULL OR auth.uid() = user_id); -- Allow anonymous inserts
+CREATE POLICY "posts_insert_auth" ON public.blog_posts FOR INSERT
+WITH CHECK (auth.uid() = user_id); -- Allow authenticated user inserts
+CREATE POLICY "posts_update_own" ON public.blog_posts FOR UPDATE
+USING (auth.uid() = user_id OR (auth.uid() IS NULL AND author_email IS NOT NULL));
+CREATE POLICY "posts_delete_own" ON public.blog_posts FOR DELETE
+USING (auth.uid() = user_id OR (auth.uid() IS NULL AND author_email IS NOT NULL));
 
 -- Post images RLS policies
 CREATE POLICY "post_images_select_all" ON public.post_images FOR SELECT USING (true);

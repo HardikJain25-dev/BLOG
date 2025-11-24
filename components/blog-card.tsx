@@ -13,6 +13,7 @@ interface BlogCardProps {
     featured_image_url: string
     slug: string
     created_at: string
+    author_name?: string
     profiles?: { display_name: string }
   }
 }
@@ -23,6 +24,8 @@ export function BlogCard({ post }: BlogCardProps) {
     month: "long",
     day: "numeric",
   })
+
+  const authorDisplay = post.author_name || post.profiles?.display_name || 'Anonymous'
 
   return (
     <Link href={`/community/${post.slug}`}>
@@ -55,7 +58,7 @@ export function BlogCard({ post }: BlogCardProps) {
           <div className="flex items-center gap-4 text-xs text-neutral-500 pt-4 border-t border-neutral-200">
             <div className="flex items-center gap-1">
               <User className="w-3 h-3" />
-              <span>{post.profiles?.display_name || "Unknown"}</span>
+              <span>{authorDisplay}</span>
             </div>
             <div className="flex items-center gap-1">
               <Calendar className="w-3 h-3" />

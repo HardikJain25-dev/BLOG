@@ -15,6 +15,7 @@ interface BlogPost {
   content: string;
   featured_image_url: string;
   created_at: string;
+  author_name?: string;
   profiles?: {
     display_name: string;
   };
@@ -35,7 +36,7 @@ export default function BlogPage() {
         const supabase = createClient();
         const { data, error } = await supabase
           .from("blog_posts")
-          .select("id, title, description, content, featured_image_url, created_at, profiles(display_name)")
+          .select("id, title, description, content, featured_image_url, created_at, author_name, profiles(display_name)")
           .eq("slug", slug)
           .eq("status", "published")
           .single();
@@ -110,12 +111,8 @@ export default function BlogPage() {
                   month: 'long',
                   day: 'numeric'
                 })}</span>
-                {post.profiles?.display_name && (
-                  <>
-                    <span>•</span>
-                    <span>By {post.profiles.display_name}</span>
-                  </>
-                )}
+                <span>•</span>
+                <span>By {post.author_name || post.profiles?.display_name || 'Anonymous'}</span>
               </div>
             </header>
 

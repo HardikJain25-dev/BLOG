@@ -12,6 +12,8 @@ export function CreateBlogSection() {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [content, setContent] = useState("")
+  const [authorName, setAuthorName] = useState("")
+  const [authorEmail, setAuthorEmail] = useState("")
   const [featuredImage, setFeaturedImage] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [previewFeatured, setPreviewFeatured] = useState<string>("")
@@ -40,22 +42,19 @@ export function CreateBlogSection() {
     setLoading(true)
 
     try {
-      // Create supabase client for authentication check
-      const authClient = createClient()
-
-      // Check if user is authenticated
-      const { data: { user } } = await authClient.auth.getUser()
-      if (!user) {
-        alert("Please sign in to create a blog post")
+      // Basic validation
+      if (!authorName.trim()) {
+        alert("Please enter your name")
         setLoading(false)
         return
       }
 
+      const supabase = createClient()
       let featuredImageUrl = ""
 
       if (featuredImage) {
         const path = await uploadImage(featuredImage, "blog-images")
-        const { data } = authClient.storage.from("blog-images").getPublicUrl(path)
+        const { data } = supabase.storage.from("blog-images").getPublicUrl(path)
         featuredImageUrl = data.publicUrl
       }
 
@@ -65,13 +64,15 @@ export function CreateBlogSection() {
         .replace(/[^\w-]/g, "")
         .substring(0, 100)
 
-      const { error: postError } = await authClient
+      const { error: postError } = await supabase
         .from("blog_posts")
         .insert({
-          user_id: user.id,
+          user_id: null, // Anonymous post
           title: title.trim(),
           description: description?.trim() || null,
           content: content.trim(),
+          author_name: authorName.trim(),
+          author_email: authorEmail?.trim() || null,
           featured_image_url: featuredImageUrl,
           slug,
           status: "published",
@@ -88,6 +89,8 @@ export function CreateBlogSection() {
       setTitle("")
       setDescription("")
       setContent("")
+      setAuthorName("")
+      setAuthorEmail("")
       setFeaturedImage(null)
       setPreviewFeatured("")
 
@@ -147,7 +150,30 @@ export function CreateBlogSection() {
               />
             </div>
 
+            {/* Author Name */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-900 mb-2">Your Name *</label>
+              <input
+                type="text"
+                value={authorName}
+                onChange={(e) => setAuthorName(e.target.value)}
+                placeholder="Enter your name (will be displayed with your post)"
+                required
+                className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-all"
+              />
+            </div>
+          </div>
 
+          {/* Author Email */}
+          <div>
+            <label className="block text-sm font-medium text-neutral-900 mb-2">Your Email (optional)</label>
+            <input
+              type="email"
+              value={authorEmail}
+              onChange={(e) => setAuthorEmail(e.target.value)}
+              placeholder="your.email@example.com (for post management)"
+              className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-all"
+            />
           </div>
 
           {/* Description */}

@@ -15,6 +15,7 @@ interface BlogPost {
   featured_image_url: string
   slug: string
   created_at: string
+  author_name?: string
   profiles?: {
     display_name: string
   }
@@ -33,7 +34,7 @@ export default function CommunityPage() {
         const supabase = createClient()
         const { data, error } = await supabase
           .from("blog_posts")
-          .select("id, title, description, featured_image_url, slug, created_at, profiles(display_name)")
+          .select("id, title, description, featured_image_url, slug, created_at, author_name")
           .eq("status", "published")
           .order("created_at", { ascending: false })
 
