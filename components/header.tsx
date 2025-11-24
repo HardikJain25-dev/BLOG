@@ -9,7 +9,6 @@ import { createClient } from "@/lib/supabase/client"
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [, setUser] = useState<unknown>(null)
-  const supabase = createClient()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -21,6 +20,7 @@ export function Header() {
   }, [])
 
   useEffect(() => {
+    const supabase = createClient()
     const getUser = async () => {
       const {
         data: { user },
@@ -39,7 +39,7 @@ export function Header() {
     return () => {
       subscription?.unsubscribe()
     }
-  }, [supabase])
+  }, [])
 
   // handleLogout removed (not currently used); keep auth handling in useEffect
 

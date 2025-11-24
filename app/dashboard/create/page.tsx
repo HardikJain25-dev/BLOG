@@ -2,6 +2,8 @@
 
 import type React from "react"
 
+export const dynamic = 'force-dynamic'
+
 import { useEffect, useState } from "react"
 import { redirect, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"

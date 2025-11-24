@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+
+export const dynamic = 'force-dynamic'
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Header } from "@/components/header"
