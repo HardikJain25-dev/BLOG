@@ -1,17 +1,52 @@
+"use client"
+
+import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { notFound } from "next/navigation";
+import { notFound, useParams } from "next/navigation";
 
-export default async function BlogPage() {
-  const supabase = createClient();
+interface BlogPost {
+  id: string;
+  title: string;
+  description: string;
+  content: string;
+  featured_image_url: string;
+  created_at: string;
+}
 
-  const { data: post, error } = await supabase
-    .from("blog_posts")
-    .select("id, title, description, content, featured_image_url, created_at")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .single();
+export default function BlogPage() {
+  const [post, setPost] = useState<BlogPost | null>(null);
+  const [loading, setLoading] = useState(true);
+  const params = useParams();
+  const slug = params.slug as string;
 
-  if (error || !post) {
+  useEffect(() => {
+    const fetchPost = async () => {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from("blog_posts")
+        .select("id, title, description, content, featured_image_url, created_at")
+        .eq("slug", slug)
+        .single();
+
+      if (error || !data) {
+        setLoading(false);
+        return;
+      }
+
+      setPost(data as BlogPost);
+      setLoading(false);
+    };
+
+    if (slug) {
+      fetchPost();
+    }
+  }, [slug]);
+
+  if (loading) {
+    return <div>Loading...</div>;
+  }
+
+  if (!post) {
     return notFound();
   }
 

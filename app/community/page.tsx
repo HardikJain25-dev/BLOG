@@ -23,10 +23,10 @@ interface BlogPost {
 export default function CommunityPage() {
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
 
   useEffect(() => {
     const fetchPosts = async () => {
+      const supabase = createClient()
       const { data } = await supabase
         .from("blog_posts")
         .select("id, title, description, featured_image_url, slug, created_at")
@@ -38,7 +38,7 @@ export default function CommunityPage() {
     }
 
     fetchPosts()
-  }, [supabase])
+  }, [])
 
   return (
     <>

@@ -21,10 +21,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
   interface AuthUser { id: string }
   const [, setUser] = useState<AuthUser | null>(null)
-  const supabase = createClient()
 
   useEffect(() => {
     const fetchData = async () => {
+      const supabase = createClient()
       const { data: authData } = await supabase.auth.getUser()
       if (!authData.user) {
         redirect("/auth/login")
@@ -41,10 +41,11 @@ export default function DashboardPage() {
       setLoading(false)
     }
     fetchData()
-  }, [supabase])
+  }, [])
 
   const handleDelete = async (postId: string) => {
     if (window.confirm("Are you sure you want to delete this post?")) {
+      const supabase = createClient()
       await supabase.from("blog_posts").delete().eq("id", postId)
       setPosts(posts.filter((p) => p.id !== postId))
     }

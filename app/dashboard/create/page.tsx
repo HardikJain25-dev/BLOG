@@ -22,11 +22,11 @@ export default function CreatePostPage() {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [previewFeatured, setPreviewFeatured] = useState<string>("")
   const [previewAdditional, setPreviewAdditional] = useState<string[]>([])
-  const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
     const checkUser = async () => {
+      const supabase = createClient()
       const { data: authData } = await supabase.auth.getUser()
       if (!authData.user) {
         redirect("/auth/login")
@@ -34,7 +34,7 @@ export default function CreatePostPage() {
       setUser(authData.user as AuthUser)
     }
     checkUser()
-  }, [supabase.auth])
+  }, [])
 
   const handleFeaturedImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -57,6 +57,7 @@ export default function CreatePostPage() {
   }
 
   const uploadImage = async (file: File, bucket: string) => {
+    const supabase = createClient()
     const fileName = `${Date.now()}-${file.name}`
     const { data, error } = await supabase.storage.from(bucket).upload(fileName, file)
     if (error) throw error
@@ -68,6 +69,7 @@ export default function CreatePostPage() {
     setLoading(true)
 
     try {
+      const supabase = createClient()
       let featuredImageUrl = ""
 
       // Upload featured image if provided
