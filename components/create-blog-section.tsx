@@ -12,7 +12,6 @@ export function CreateBlogSection() {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [content, setContent] = useState("")
-  const [author, setAuthor] = useState("")
   const [featuredImage, setFeaturedImage] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [previewFeatured, setPreviewFeatured] = useState<string>("")
@@ -41,12 +40,22 @@ export function CreateBlogSection() {
     setLoading(true)
 
     try {
-      const supabase = createClient()
+      // Create supabase client for authentication check
+      const authClient = createClient()
+
+      // Check if user is authenticated
+      const { data: { user } } = await authClient.auth.getUser()
+      if (!user) {
+        alert("Please sign in to create a blog post")
+        setLoading(false)
+        return
+      }
+
       let featuredImageUrl = ""
 
       if (featuredImage) {
         const path = await uploadImage(featuredImage, "blog-images")
-        const { data } = supabase.storage.from("blog-images").getPublicUrl(path)
+        const { data } = authClient.storage.from("blog-images").getPublicUrl(path)
         featuredImageUrl = data.publicUrl
       }
 
@@ -54,14 +63,15 @@ export function CreateBlogSection() {
         .toLowerCase()
         .replace(/\s+/g, "-")
         .replace(/[^\w-]/g, "")
+        .substring(0, 100)
 
-      const { error: postError } = await supabase
+      const { error: postError } = await authClient
         .from("blog_posts")
         .insert({
-          title,
-          description,
-          content,
-          author_name: author,
+          user_id: user.id,
+          title: title.trim(),
+          description: description?.trim() || null,
+          content: content.trim(),
           featured_image_url: featuredImageUrl,
           slug,
           status: "published",
@@ -69,20 +79,23 @@ export function CreateBlogSection() {
         .select()
         .single()
 
-      if (postError) throw postError
+      if (postError) {
+        console.error("Post creation error:", postError)
+        throw new Error(`Failed to create post: ${postError.message}`)
+      }
 
       setSuccess(true)
       setTitle("")
       setDescription("")
       setContent("")
-      setAuthor("")
       setFeaturedImage(null)
       setPreviewFeatured("")
 
       setTimeout(() => setSuccess(false), 5000)
     } catch (error) {
-      console.error("FULL ERROR:", JSON.stringify(error, null, 2))
-      alert("Failed to create post")
+      console.error("Post creation failed:", error)
+      const errorMessage = error instanceof Error ? error.message : "Failed to create post. Please try again."
+      alert(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -134,18 +147,7 @@ export function CreateBlogSection() {
               />
             </div>
 
-            {/* Author */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-900 mb-2">Your Name</label>
-              <input
-                type="text"
-                value={author}
-                onChange={(e) => setAuthor(e.target.value)}
-                placeholder="Enter your name"
-                required
-                className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 transition-all"
-              />
-            </div>
+
           </div>
 
           {/* Description */}
