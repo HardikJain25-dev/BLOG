@@ -1,8 +1,6 @@
 "use client"
 
 import { useEffect, useState } from "react"
-
-export const dynamic = 'force-dynamic'
 import { motion } from "framer-motion"
 import { createClient } from "@/lib/supabase/client"
 import { Header } from "@/components/header"
@@ -22,21 +20,35 @@ interface BlogPost {
   }
 }
 
+export const dynamic = 'force-dynamic'
+
 export default function CommunityPage() {
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchPosts = async () => {
-      const supabase = createClient()
-      const { data } = await supabase
-        .from("blog_posts")
-        .select("id, title, description, featured_image_url, slug, created_at")
-        .eq("status", "published")
-        .order("created_at", { ascending: false })
+      try {
+        const supabase = createClient()
+        const { data, error } = await supabase
+          .from("blog_posts")
+          .select("id, title, description, featured_image_url, slug, created_at, profiles(display_name)")
+          .eq("status", "published")
+          .order("created_at", { ascending: false })
 
-      if (data) setPosts(data as BlogPost[])
-      setLoading(false)
+        if (error) {
+          console.error('Error fetching posts:', error)
+          setError('Failed to load blog posts')
+        } else {
+          setPosts(data as BlogPost[])
+        }
+      } catch (err) {
+        console.error('Unexpected error:', err)
+        setError('An unexpected error occurred')
+      } finally {
+        setLoading(false)
+      }
     }
 
     fetchPosts()

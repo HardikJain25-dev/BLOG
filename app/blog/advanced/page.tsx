@@ -1,15 +1,12 @@
 "use client"
 
-import type React from "react"
-
 import { useEffect, useState } from "react"
 import { redirect, useRouter } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
-import { ArrowLeft, Upload, AlertCircle, X } from "lucide-react"
+import { ArrowLeft, Upload, AlertCircle, Bold, Italic, List, Link as LinkIcon, X } from "lucide-react"
 import Link from "next/link"
-import Image from "next/image"
 
 interface AuthUser { id: string }
 
@@ -18,16 +15,14 @@ const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
 export const dynamic = 'force-dynamic'
 
-export default function CreatePostPage() {
+export default function AdvancedBlogEditor() {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
   const [content, setContent] = useState("")
   const [featuredImage, setFeaturedImage] = useState<File | null>(null)
-  const [additionalImages, setAdditionalImages] = useState<File[]>([])
   const [loading, setLoading] = useState(false)
   const [user, setUser] = useState<AuthUser | null>(null)
   const [previewFeatured, setPreviewFeatured] = useState<string>("")
-  const [previewAdditional, setPreviewAdditional] = useState<string[]>([])
   const [errors, setErrors] = useState<{[key: string]: string}>({})
   const router = useRouter()
 
@@ -75,32 +70,38 @@ export default function CreatePostPage() {
     }
   }
 
-  const handleAdditionalImagesChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || [])
-    const validFiles: File[] = []
-    const newErrors: string[] = []
+  const insertFormatting = (format: string) => {
+    const textarea = document.getElementById('content-editor') as HTMLTextAreaElement
+    if (!textarea) return
 
-    files.forEach((file) => {
-      const error = validateFile(file)
-      if (error) {
-        newErrors.push(`${file.name}: ${error}`)
-      } else {
-        validFiles.push(file)
-      }
-    })
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const selectedText = content.substring(start, end)
 
-    if (newErrors.length > 0) {
-      setErrors(prev => ({ ...prev, additionalImages: newErrors.join('; ') }))
-    } else {
-      setErrors(prev => ({ ...prev, additionalImages: '' }))
+    let replacement = ''
+    switch (format) {
+      case 'bold':
+        replacement = `**${selectedText || 'bold text'}**`
+        break
+      case 'italic':
+        replacement = `*${selectedText || 'italic text'}*`
+        break
+      case 'list':
+        replacement = `\n- ${selectedText || 'list item'}`
+        break
+      case 'link':
+        replacement = `[${selectedText || 'link text'}](url)`
+        break
     }
 
-    setAdditionalImages((prev) => [...prev, ...validFiles])
-    validFiles.forEach((file) => {
-      const reader = new FileReader()
-      reader.onloadend = () => setPreviewAdditional((prev) => [...prev, reader.result as string])
-      reader.readAsDataURL(file)
-    })
+    const newContent = content.substring(0, start) + replacement + content.substring(end)
+    setContent(newContent)
+
+    // Focus back on textarea
+    setTimeout(() => {
+      textarea.focus()
+      textarea.setSelectionRange(start + replacement.length, start + replacement.length)
+    }, 0)
   }
 
   const uploadImage = async (file: File, bucket: string): Promise<string> => {
@@ -176,27 +177,6 @@ export default function CreatePostPage() {
         throw new Error(`Failed to create post: ${postError.message}`)
       }
 
-      // Upload additional images
-      if (additionalImages.length > 0) {
-        const uploadPromises = additionalImages.map(async (file, index) => {
-          const path = await uploadImage(file, "blog-images")
-          const { data } = supabase.storage.from("blog-images").getPublicUrl(path)
-          return supabase.from("post_images").insert({
-            post_id: post.id,
-            image_url: data.publicUrl,
-            order_index: index,
-          })
-        })
-
-        const results = await Promise.allSettled(uploadPromises)
-        const failures = results.filter(result => result.status === 'rejected')
-
-        if (failures.length > 0) {
-          console.warn('Some additional images failed to upload:', failures)
-          // Don't fail the whole operation for additional image failures
-        }
-      }
-
       router.push("/dashboard")
     } catch (error) {
       console.error("Error creating post:", error)
@@ -225,7 +205,7 @@ export default function CreatePostPage() {
     <>
       <Header />
       <main className="min-h-screen pt-32 pb-20">
-        <div className="container-custom max-w-3xl">
+        <div className="container-custom max-w-4xl">
           <Link
             href="/dashboard"
             className="flex items-center gap-2 text-neutral-600 hover:text-neutral-900 mb-8 transition-colors"
@@ -234,7 +214,7 @@ export default function CreatePostPage() {
             <span>Back to dashboard</span>
           </Link>
 
-          <h1 className="text-4xl font-bold text-neutral-900 mb-12">Create New Post</h1>
+          <h1 className="text-4xl font-bold text-neutral-900 mb-12">Advanced Blog Editor</h1>
 
           {errors.submit && (
             <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-8">
@@ -256,8 +236,7 @@ export default function CreatePostPage() {
                   setTitle(e.target.value)
                   if (errors.title) setErrors(prev => ({ ...prev, title: '' }))
                 }}
-                placeholder="Enter post title"
-                required
+                placeholder="Enter an engaging title"
                 className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 ${
                   errors.title
                     ? 'border-red-300 focus:ring-red-500'
@@ -277,11 +256,24 @@ export default function CreatePostPage() {
               <label className="block text-sm font-medium text-neutral-900 mb-2">Description</label>
               <textarea
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => {
+                  setDescription(e.target.value)
+                  if (errors.description) setErrors(prev => ({ ...prev, description: '' }))
+                }}
                 placeholder="Brief description of your post"
-                rows={2}
-                className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 resize-none"
+                rows={3}
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 resize-none ${
+                  errors.description
+                    ? 'border-red-300 focus:ring-red-500'
+                    : 'border-neutral-200 focus:ring-neutral-900'
+                }`}
               />
+              {errors.description && (
+                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {errors.description}
+                </p>
+              )}
             </div>
 
             {/* Featured Image */}
@@ -297,66 +289,109 @@ export default function CreatePostPage() {
                 />
                 {previewFeatured ? (
                   <div className="relative w-full h-64">
-                    <Image
-                      src={previewFeatured || "/placeholder.svg"}
+                    <img
+                      src={previewFeatured}
                       alt="Featured preview"
-                      fill
-                      className="object-cover rounded"
+                      className="w-full h-full object-cover rounded"
                     />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFeaturedImage(null)
+                        setPreviewFeatured("")
+                      }}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
                   </div>
                 ) : (
                   <label htmlFor="featured-image" className="cursor-pointer flex flex-col items-center gap-2">
                     <Upload className="w-8 h-8 text-neutral-400" />
                     <span className="text-neutral-600">Click to upload featured image</span>
+                    <span className="text-sm text-neutral-500">Max 5MB • JPEG, PNG, WebP, GIF</span>
                   </label>
                 )}
               </div>
-            </div>
-
-            {/* Content */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-900 mb-2">Post Content</label>
-              <textarea
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Write your blog post content here..."
-                rows={12}
-                required
-                className="w-full px-4 py-3 border border-neutral-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-neutral-900 resize-none font-mono text-sm"
-              />
-            </div>
-
-            {/* Additional Images */}
-            <div>
-              <label className="block text-sm font-medium text-neutral-900 mb-2">Additional Images</label>
-              <div className="border-2 border-dashed border-neutral-200 rounded-lg p-6 text-center hover:border-neutral-400 transition-colors">
-                <input
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  onChange={handleAdditionalImagesChange}
-                  className="hidden"
-                  id="additional-images"
-                />
-                <label htmlFor="additional-images" className="cursor-pointer flex flex-col items-center gap-2">
-                  <Upload className="w-6 h-6 text-neutral-400" />
-                  <span className="text-neutral-600">Click to add more images</span>
-                </label>
-              </div>
-              {previewAdditional.length > 0 && (
-                <div className="grid grid-cols-3 gap-4 mt-4">
-                  {previewAdditional.map((preview, idx) => (
-                    <div key={idx} className="relative w-full h-24">
-                      <Image
-                        src={preview || "/placeholder.svg"}
-                        alt={`Preview ${idx}`}
-                        fill
-                        className="object-cover rounded"
-                      />
-                    </div>
-                  ))}
-                </div>
+              {errors.featuredImage && (
+                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {errors.featuredImage}
+                </p>
               )}
+            </div>
+
+            {/* Content Editor */}
+            <div>
+              <label className="block text-sm font-medium text-neutral-900 mb-2">Content</label>
+
+              {/* Formatting Toolbar */}
+              <div className="flex gap-2 mb-2 p-2 bg-neutral-50 rounded-lg border">
+                <button
+                  type="button"
+                  onClick={() => insertFormatting('bold')}
+                  className="p-2 hover:bg-neutral-200 rounded"
+                  title="Bold"
+                >
+                  <Bold className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => insertFormatting('italic')}
+                  className="p-2 hover:bg-neutral-200 rounded"
+                  title="Italic"
+                >
+                  <Italic className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => insertFormatting('list')}
+                  className="p-2 hover:bg-neutral-200 rounded"
+                  title="List"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => insertFormatting('link')}
+                  className="p-2 hover:bg-neutral-200 rounded"
+                  title="Link"
+                >
+                  <LinkIcon className="w-4 h-4" />
+                </button>
+              </div>
+
+              <textarea
+                id="content-editor"
+                value={content}
+                onChange={(e) => {
+                  setContent(e.target.value)
+                  if (errors.content) setErrors(prev => ({ ...prev, content: '' }))
+                }}
+                placeholder="Write your blog post content here... Use **bold**, *italic*, - lists, and [text](url) for links"
+                rows={20}
+                className={`w-full px-4 py-3 border rounded-lg focus:outline-none focus:ring-2 font-mono text-sm resize-none ${
+                  errors.content
+                    ? 'border-red-300 focus:ring-red-500'
+                    : 'border-neutral-200 focus:ring-neutral-900'
+                }`}
+              />
+              {errors.content && (
+                <p className="mt-1 text-sm text-red-600 flex items-center gap-1">
+                  <AlertCircle className="w-4 h-4" />
+                  {errors.content}
+                </p>
+              )}
+
+              <div className="mt-2 text-sm text-neutral-500">
+                <p><strong>Formatting Guide:</strong></p>
+                <ul className="list-disc list-inside mt-1 space-y-1">
+                  <li>**text** for <strong>bold</strong></li>
+                  <li>*text* for <em>italic</em></li>
+                  <li>- item for bullet lists</li>
+                  <li>[text](url) for links</li>
+                </ul>
+              </div>
             </div>
 
             {/* Submit */}

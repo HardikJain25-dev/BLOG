@@ -1,5 +1,7 @@
 "use client"
 import { Header } from "@/components/header"
+
+export const dynamic = 'force-dynamic'
 import { HeroSection } from "@/components/hero-section"
 import { CreateBlogSection } from "@/components/create-blog-section"
 import { FeaturedProducts } from "@/components/featured-products"

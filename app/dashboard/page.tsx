@@ -1,14 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
-
-export const dynamic = 'force-dynamic'
 import { redirect } from "next/navigation"
 import { createClient } from "@/lib/supabase/client"
 import { Header } from "@/components/header"
 import { Footer } from "@/components/footer"
 import Link from "next/link"
-import { Plus, Edit2, Trash2 } from "lucide-react"
+import { Plus, Edit2, Trash2, AlertCircle } from "lucide-react"
 
 interface BlogPost {
   id: string
@@ -18,42 +16,106 @@ interface BlogPost {
   featured_image_url: string
 }
 
+interface AuthUser { id: string }
+
+export const dynamic = 'force-dynamic'
+
 export default function DashboardPage() {
   const [posts, setPosts] = useState<BlogPost[]>([])
   const [loading, setLoading] = useState(true)
-  interface AuthUser { id: string }
-  const [, setUser] = useState<AuthUser | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
-      const supabase = createClient()
-      const { data: authData } = await supabase.auth.getUser()
-      if (!authData.user) {
-        redirect("/auth/login")
+      try {
+        const supabase = createClient()
+        const { data: authData, error: authError } = await supabase.auth.getUser()
+
+        if (authError || !authData.user) {
+          redirect("/auth/login")
+        }
+
+        setUser(authData.user as AuthUser)
+
+        const { data: postsData, error: postsError } = await supabase
+          .from("blog_posts")
+          .select("id, title, status, created_at, featured_image_url")
+          .eq("user_id", authData.user.id)
+          .order("created_at", { ascending: false })
+
+        if (postsError) {
+          console.error('Error fetching posts:', postsError)
+          setError('Failed to load your posts')
+        } else {
+          setPosts(postsData as BlogPost[])
+        }
+      } catch (err) {
+        console.error('Unexpected error:', err)
+        setError('An unexpected error occurred')
+      } finally {
+        setLoading(false)
       }
-  setUser(authData.user as AuthUser)
-
-      const { data: postsData } = await supabase
-        .from("blog_posts")
-        .select("id, title, status, created_at, featured_image_url")
-        .eq("user_id", authData.user.id)
-        .order("created_at", { ascending: false })
-
-      setPosts(postsData as BlogPost[])
-      setLoading(false)
     }
     fetchData()
   }, [])
 
   const handleDelete = async (postId: string) => {
-    if (window.confirm("Are you sure you want to delete this post?")) {
-      const supabase = createClient()
-      await supabase.from("blog_posts").delete().eq("id", postId)
-      setPosts(posts.filter((p) => p.id !== postId))
+    if (window.confirm("Are you sure you want to delete this post? This action cannot be undone.")) {
+      try {
+        const supabase = createClient()
+        const { error } = await supabase.from("blog_posts").delete().eq("id", postId)
+
+        if (error) {
+          console.error('Error deleting post:', error)
+          alert('Failed to delete post. Please try again.')
+        } else {
+          setPosts(posts.filter((p) => p.id !== postId))
+        }
+      } catch (err) {
+        console.error('Unexpected error:', err)
+        alert('An unexpected error occurred')
+      }
     }
   }
 
-  if (loading) return <div className="h-96 bg-neutral-100 animate-pulse" />
+  if (loading) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen pt-32 pb-20">
+          <div className="container-custom">
+            <div className="h-96 bg-neutral-100 animate-pulse rounded-lg" />
+          </div>
+        </div>
+        <Footer />
+      </>
+    )
+  }
+
+  if (error) {
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen pt-32 pb-20">
+          <div className="container-custom">
+            <div className="text-center py-12">
+              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-neutral-900 mb-2">Error Loading Dashboard</h2>
+              <p className="text-neutral-600 mb-4">{error}</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="bg-neutral-900 text-white px-4 py-2 rounded-lg hover:bg-neutral-800"
+              >
+                Try Again
+              </button>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </>
+    )
+  }
 
   return (
     <>

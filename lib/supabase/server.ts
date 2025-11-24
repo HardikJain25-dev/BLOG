@@ -2,14 +2,20 @@ import { createServerClient } from "@supabase/ssr"
 import { cookies } from "next/headers"
 
 /**
- * Especially important if using Fluid compute: Don't put this client in a
- * global variable. Always create a new client within each function when using
- * it.
+ * Create a new Supabase server client for each request.
+ * Never cache or reuse server clients.
  */
 export async function createClient() {
   const cookieStore = await cookies()
 
-  return createServerClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!, {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+  if (!url || !key) {
+    throw new Error('Missing Supabase environment variables')
+  }
+
+  return createServerClient(url, key, {
     cookies: {
       getAll() {
         return cookieStore.getAll()
@@ -17,10 +23,10 @@ export async function createClient() {
       setAll(cookiesToSet) {
         try {
           cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
-        } catch {
+        } catch (error) {
           // The "setAll" method was called from a Server Component.
-          // This can be ignored if you have middleware refreshing
-          // user sessions.
+          // This can be ignored if you have middleware refreshing user sessions.
+          console.warn('Failed to set cookies in server component:', error)
         }
       },
     },

@@ -1,10 +1,12 @@
 "use client"
 
 import { useEffect, useState } from "react"
-
-export const dynamic = 'force-dynamic';
-import { createClient } from "@/lib/supabase/client";
-import { notFound, useParams } from "next/navigation";
+import { createClient } from "@/lib/supabase/client"
+import { notFound, useParams } from "next/navigation"
+import { Header } from "@/components/header"
+import { Footer } from "@/components/footer"
+import { ArrowLeft } from "lucide-react"
+import Link from "next/link"
 
 interface BlogPost {
   id: string;
@@ -13,30 +15,43 @@ interface BlogPost {
   content: string;
   featured_image_url: string;
   created_at: string;
+  profiles?: {
+    display_name: string;
+  };
 }
+
+export const dynamic = 'force-dynamic'
 
 export default function BlogPage() {
   const [post, setPost] = useState<BlogPost | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const params = useParams();
   const slug = params.slug as string;
 
   useEffect(() => {
     const fetchPost = async () => {
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from("blog_posts")
-        .select("id, title, description, content, featured_image_url, created_at")
-        .eq("slug", slug)
-        .single();
+      try {
+        const supabase = createClient();
+        const { data, error } = await supabase
+          .from("blog_posts")
+          .select("id, title, description, content, featured_image_url, created_at, profiles(display_name)")
+          .eq("slug", slug)
+          .eq("status", "published")
+          .single();
 
-      if (error || !data) {
+        if (error) {
+          console.error('Error fetching post:', error)
+          setError('Post not found')
+        } else {
+          setPost(data as BlogPost);
+        }
+      } catch (err) {
+        console.error('Unexpected error:', err)
+        setError('An unexpected error occurred')
+      } finally {
         setLoading(false);
-        return;
       }
-
-      setPost(data as BlogPost);
-      setLoading(false);
     };
 
     if (slug) {
@@ -45,54 +60,78 @@ export default function BlogPage() {
   }, [slug]);
 
   if (loading) {
-    return <div>Loading...</div>;
+    return (
+      <>
+        <Header />
+        <div className="min-h-screen pt-32 pb-20 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-neutral-900 mx-auto mb-4"></div>
+            <p className="text-neutral-600">Loading post...</p>
+          </div>
+        </div>
+        <Footer />
+      </>
+    );
   }
 
-  if (!post) {
+  if (error || !post) {
     return notFound();
   }
 
   return (
-    <div className="bg-white text-gray-900 min-h-screen">
-      <div className="max-w-4xl mx-auto px-4 py-8 md:py-12">
-        <h1 className="text-3xl md:text-4xl font-bold mb-6">Blog</h1>
+    <>
+      <Header />
+      <main className="min-h-screen pt-32 pb-20">
+        <div className="container-custom max-w-4xl">
+          <Link
+            href="/community"
+            className="inline-flex items-center gap-2 text-neutral-600 hover:text-neutral-900 mb-8 transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Community
+          </Link>
 
-        <div className="bg-gray-50 rounded-xl p-4 md:p-6 shadow-md">
-          {post.featured_image_url && (
-            <img
-              src={post.featured_image_url}
-              alt={post.title}
-              className="w-full rounded-lg mb-6 object-contain"
-            />
-          )}
+          <article className="bg-white rounded-xl p-6 md:p-8 shadow-sm border border-neutral-200">
+            {post.featured_image_url && (
+              <img
+                src={post.featured_image_url}
+                alt={post.title}
+                className="w-full rounded-lg mb-8 object-cover max-h-96"
+              />
+            )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
-            <div>
-              <h2 className="text-2xl md:text-3xl font-semibold mb-2">{post.title}</h2>
-              <p className="text-gray-500 text-sm md:text-base">
-                {new Date(post.created_at).toLocaleDateString()}
-              </p>
-            </div>
+            <header className="mb-8">
+              <h1 className="text-3xl md:text-4xl font-bold text-neutral-900 mb-4">
+                {post.title}
+              </h1>
+              <div className="flex items-center gap-4 text-neutral-600">
+                <span>{new Date(post.created_at).toLocaleDateString('en-US', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}</span>
+                {post.profiles?.display_name && (
+                  <>
+                    <span>•</span>
+                    <span>By {post.profiles.display_name}</span>
+                  </>
+                )}
+              </div>
+            </header>
 
-            <div className="flex flex-col justify-between">
-              <p className="text-gray-600 text-sm md:text-base leading-relaxed mb-2">
+            <div className="prose prose-neutral max-w-none">
+              <p className="text-xl text-neutral-700 mb-8 leading-relaxed">
                 {post.description}
               </p>
 
-              <div className="flex items-center gap-2 md:gap-3">
-                <div className="w-8 h-8 rounded-full bg-gray-700"></div>
-                <div>
-                  <p className="font-medium text-sm md:text-base">Author</p>
-                </div>
+              <div className="text-neutral-800 leading-relaxed whitespace-pre-wrap">
+                {post.content}
               </div>
             </div>
-          </div>
-
-          <div className="mt-6 md:mt-8 text-base md:text-lg leading-relaxed whitespace-pre-wrap text-gray-700">
-            {post.content}
-          </div>
+          </article>
         </div>
-      </div>
-    </div>
+      </main>
+      <Footer />
+    </>
   );
 }

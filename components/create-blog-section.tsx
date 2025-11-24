@@ -17,7 +17,6 @@ export function CreateBlogSection() {
   const [loading, setLoading] = useState(false)
   const [previewFeatured, setPreviewFeatured] = useState<string>("")
   const [success, setSuccess] = useState(false)
-  const supabase = createClient()
 
   const handleFeaturedImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -30,6 +29,7 @@ export function CreateBlogSection() {
   }
 
   const uploadImage = async (file: File, bucket: string) => {
+    const supabase = createClient()
     const fileName = `${Date.now()}-${file.name}`
     const { data, error } = await supabase.storage.from(bucket).upload(fileName, file)
     if (error) throw error
@@ -41,6 +41,7 @@ export function CreateBlogSection() {
     setLoading(true)
 
     try {
+      const supabase = createClient()
       let featuredImageUrl = ""
 
       if (featuredImage) {

@@ -5,10 +5,12 @@ import { motion } from "framer-motion"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { createClient } from "@/lib/supabase/client"
+import type { Session } from "@supabase/supabase-js"
 
 export function Header() {
   const [isScrolled, setIsScrolled] = useState(false)
-  const [, setUser] = useState<unknown>(null)
+  const [user, setUser] = useState<unknown>(null)
+  const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
     const handleScroll = () => {
@@ -20,24 +22,47 @@ export function Header() {
   }, [])
 
   useEffect(() => {
-    const supabase = createClient()
-    const getUser = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      setUser(user)
+    // Only initialize auth on client side
+    if (typeof window === 'undefined') return
+
+    let mounted = true
+
+    const initializeAuth = async () => {
+      try {
+        const supabase = createClient()
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
+
+        if (mounted) {
+          setUser(user)
+          setIsLoading(false)
+        }
+
+        const {
+          data: { subscription },
+        } = supabase.auth.onAuthStateChange((_event: string, session: Session | null) => {
+          if (mounted) {
+            setUser(session?.user)
+          }
+        })
+
+        return () => {
+          subscription?.unsubscribe()
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error)
+        if (mounted) {
+          setIsLoading(false)
+        }
+      }
     }
 
-    getUser()
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user)
-    })
+    const cleanup = initializeAuth()
 
     return () => {
-      subscription?.unsubscribe()
+      mounted = false
+      cleanup?.then(cleanupFn => cleanupFn?.())
     }
   }, [])
 
